@@ -1,0 +1,31 @@
+{
+  "name": "pi-simple-subagents",
+  "version": "0.1.0",
+  "description": "Thin Pi subagents extension with user-defined agents and a single built-in general-purpose agent.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "subagent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ryonakae/pi-simple-subagents.git"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "scripts": {
+    "check": "node --experimental-strip-types --check src/index.ts && node --experimental-strip-types --check src/agents.ts"
+  }
+}
