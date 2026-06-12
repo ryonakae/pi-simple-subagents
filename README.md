@@ -10,10 +10,12 @@ Add a lightweight `subagent` tool to Pi and delegate work to specialist agents y
 
 ## Features
 
-- **Small surface area:** The package ships with one built-in agent, `general-purpose`, and lets you add the specialists you need.
+- **Small surface area:** The package ships with built-in `general-purpose`, `Plan`, and `Explore` agents, and lets you add the specialists you need.
 - **Default model inheritance:** Agent files can omit `model`; child Pi processes then use the parent Pi default model.
 - **Markdown agents:** User agents live in `~/.pi/agent/agents/*.md`; project agents live in `.pi/agents/*.md`.
-- **Flexible delegation:** Run one task, run tasks in parallel, or pass prior output through a chain.
+- **Flexible delegation:** Run one task, run tasks in parallel, pass prior output through a chain, or start a background run.
+- **Reference-style compatibility:** `subagent({ subagent_type, prompt })`, `Agent(...)`, and `get_subagent_result(...)` are available alongside the original `agent` / `task` API.
+- **Run management:** Check `status`, fetch `result`, `interrupt` running background jobs, and experimentally `resume` recorded child sessions.
 - **Project prompt review:** Pi asks before it runs repository-controlled agents from `.pi/agents/*.md`.
 
 ## Install
@@ -39,6 +41,8 @@ Start Pi and describe the delegation you want.
 ```text
 List available subagents.
 Use the general-purpose subagent to investigate why npm run check fails.
+Use the Plan subagent to design the implementation before editing.
+Use the Explore subagent to locate auth-related files and references.
 Run two subagents in parallel: one reviews correctness and one checks missing documentation.
 ```
 
@@ -77,14 +81,65 @@ List available subagents.
 - `model` / `thinking`: Set the child Pi model and thinking budget. Omit `model` to use the parent default.
 - `prompt_mode`: `replace` or `append`.
 - `extensions` / `skills` / `context_files` / `enabled`: Control discovery and loading.
+- `run_in_background` / `runInBackground`: Default to background execution for this agent.
+- `inherit_context` / `inheritContext`: Reserved for future context fork support; currently fails fast when requested.
+- `max_turns` / `maxTurns` and `isolation`: Parsed for forward compatibility.
 
 ## Run modes
 
+Recommended reference-style single run:
+
+```ts
+subagent({
+  subagent_type: "reviewer",
+  prompt: "Review the current diff",
+  description: "diff review"
+})
+```
+
+Compatibility single run:
+
+```ts
+subagent({ agent: "reviewer", task: "Review the current diff" })
+```
+
+Background run:
+
+```ts
+subagent({
+  subagent_type: "scout",
+  prompt: "Investigate the auth flow",
+  run_in_background: true
+})
+```
+
+Manage runs:
+
+```ts
+subagent({ action: "status" })
+subagent({ action: "status", id: "sub_abc123" })
+subagent({ action: "result", id: "sub_abc123" })
+get_subagent_result({ id: "sub_abc123", verbose: true })
+subagent({ action: "interrupt", id: "sub_abc123" })
+subagent({ action: "resume", id: "sub_abc123", message: "Also check tests" })
+```
+
+Other modes:
+
 - List agents: set `action: "list"`.
-- Single task: pass `agent` and `task`.
 - Parallel tasks: pass `tasks`. The package accepts up to 8 tasks and runs up to 4 at a time.
 - Chain: pass `chain` and use `{previous}` to inject the prior step output.
 - Scope: choose `user`, `project`, or `both` for `agentScope`. The default is `user`.
+
+## Artifacts and limitations
+
+Runs are saved under `.pi/subagents/runs/<run-id>/` when possible, with a fallback under `~/.pi/agent/subagents/<project-hash>/runs/<run-id>/`. Each run records `status.json`, stdout/stderr logs, `result.md`, and a child `session.jsonl` path.
+
+Current limitations:
+
+- `inherit_context` / `context: "fork"` is reserved and fails fast instead of silently falling back.
+- `steer_subagent` is registered for compatibility but is not implemented yet.
+- Background jobs are managed by the current Pi process; stale running artifacts from another process cannot be interrupted.
 
 ## Requirements
 

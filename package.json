@@ -1,7 +1,7 @@
 {
   "name": "pi-simple-subagents",
   "version": "0.1.0",
-  "description": "Thin Pi subagents extension with user-defined agents and a single built-in general-purpose agent.",
+  "description": "Thin Pi subagents extension with user-defined agents and built-in general-purpose, Plan, and Explore agents.",
   "type": "module",
   "keywords": [
     "pi-package",

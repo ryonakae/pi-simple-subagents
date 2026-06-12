@@ -63,7 +63,15 @@ Project prompt.
 
     expect(result.userAgentsDir).toBe(userAgentsDir);
     expect(result.projectAgentsDir).toBe(projectAgentsDir);
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "reviewer"]);
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "reviewer"]);
+    const plan = requireAgent(result.agents, "Plan");
+    const explore = requireAgent(result.agents, "Explore");
+    expect(plan.source).toBe("builtin");
+    expect(plan.model).toBeUndefined();
+    expect(plan.thinking).toBeUndefined();
+    expect(explore.source).toBe("builtin");
+    expect(explore.model).toBeUndefined();
+    expect(explore.thinking).toBeUndefined();
     expect(requireAgent(result.agents, "reviewer")).toMatchObject({
       source: "user",
       tools: ["read", "bash"],
@@ -95,6 +103,10 @@ prompt_mode: append
 extensions: false
 skills: true
 context_files: false
+run_in_background: true
+inheritContext: false
+max_turns: 7
+isolation: worktree
 ---
 
 Plan only.
@@ -116,6 +128,10 @@ Plan only.
       extensions: false,
       skills: true,
       contextFiles: false,
+      runInBackground: true,
+      inheritContext: false,
+      maxTurns: 7,
+      isolation: "worktree",
       systemPrompt: "Plan only.",
     });
   });
@@ -138,7 +154,7 @@ Project prompt.
     const result = discoverAgents(path.join(tempDir, "repo"), "both");
     const reviewer = requireAgent(result.agents, "reviewer");
 
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "reviewer"]);
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "reviewer"]);
     expect(reviewer).toMatchObject({
       description: "Project reviewer",
       source: "project",
@@ -170,7 +186,7 @@ No description.
 
     const result = discoverAgents(tempDir, "user");
 
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "enabled"]);
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "enabled"]);
   });
 });
 
