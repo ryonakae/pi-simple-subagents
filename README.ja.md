@@ -103,8 +103,13 @@ List available subagents.
 
 ```sh
 npm run check
+npm run test
+npm run lint
+npm run typecheck
 pi --list-models -e .
 ```
+
+`npm run check` は TypeScript 型チェック、Biome、Vitest を実行します。pre-commit では Husky がテスト、型チェック、lint-staged 経由の Biome チェックを実行します。
 
 ## ライセンス
 

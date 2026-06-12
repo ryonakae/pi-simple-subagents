@@ -6,16 +6,22 @@
 
 ```sh
 npm run check
+npm run test
+npm run lint
+npm run typecheck
 ```
 
-- `npm run check`: `src/index.ts` と `src/agents.ts` の Node TypeScript 構文チェック。
+- `npm run check`: 型チェック、Biome、Vitest をまとめて実行する。
+- `npm run test`: Vitest のテストを実行する。
+- `npm run lint`: Biome でチェックする。
+- `npm run typecheck`: `tsc --noEmit` で型チェックする。
 - `pi --list-models -e .`: ローカルパッケージとして Pi から読み込めるか確認するときに使う。
 
 ## 検証手順
 
 - 変更後は最低限 `npm run check` を実行する。
 - `subagent` ツールのパラメータ、表示、子 Pi 起動に関わる変更では、Pi に `-e .` でこの拡張を読み込ませて手動確認する。
-- 現状、専用のテストスクリプトはない。動作変更で回帰リスクが高い場合は、まずテスト追加方針を決める。
+- テスト可能な変更は TDD で進める。まず失敗するテストを追加し、実装後に `npm run test` と `npm run check` で確認する。
 
 ## 重要パス
 

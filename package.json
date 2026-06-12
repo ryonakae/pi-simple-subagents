@@ -26,6 +26,27 @@
     "typebox": "*"
   },
   "scripts": {
-    "check": "node --experimental-strip-types --check src/index.ts && node --experimental-strip-types --check src/agents.ts"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@earendil-works/pi-ai": "^0.74.2",
+    "@earendil-works/pi-coding-agent": "^0.74.2",
+    "@earendil-works/pi-tui": "^0.74.2",
+    "@types/node": "^25.9.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "typebox": "^1.2.8",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  },
+  "lint-staged": {
+    "*.{js,ts,json,jsonc}": "biome check --write --no-errors-on-unmatched"
   }
 }

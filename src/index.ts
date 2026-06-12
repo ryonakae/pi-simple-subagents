@@ -49,7 +49,7 @@ type SubagentDetails = {
 
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
-  details?: SubagentDetails;
+  details: SubagentDetails;
 };
 
 type OnUpdateCallback = (partial: ToolResult) => void;
@@ -639,7 +639,8 @@ export default function (pi: ExtensionAPI) {
       const details = result.details as SubagentDetails | undefined;
       if (!details || details.results.length === 0) {
         const first = result.content[0];
-        return new Text(first?.text ?? "(no output)", 0, 0);
+        const text = first?.type === "text" ? first.text : "(no output)";
+        return new Text(text, 0, 0);
       }
 
       const lines: string[] = [];

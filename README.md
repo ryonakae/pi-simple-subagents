@@ -103,8 +103,13 @@ This package references ideas from these Pi subagent repositories.
 
 ```sh
 npm run check
+npm run test
+npm run lint
+npm run typecheck
 pi --list-models -e .
 ```
+
+`npm run check` runs TypeScript type checking, Biome, and Vitest. Husky runs tests, type checking, and lint-staged Biome checks on pre-commit.
 
 ## License
 
