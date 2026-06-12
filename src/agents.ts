@@ -31,20 +31,6 @@ export interface AgentDiscoveryResult {
   userAgentsDir: string;
 }
 
-const READ_ONLY_TOOLS = ["read", "bash"];
-
-const READ_ONLY_SYSTEM_PROMPT = [
-  "# CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS",
-  "You are STRICTLY PROHIBITED from:",
-  "- Creating new files",
-  "- Modifying existing files",
-  "- Deleting files",
-  "- Moving or copying files",
-  "- Creating temporary files anywhere, including /tmp",
-  "- Using redirect operators (>, >>, |) or heredocs to write to files",
-  "- Running ANY commands that change system state",
-].join("\n");
-
 const BUILTIN_AGENTS: AgentConfig[] = [
   {
     name: "general-purpose",
@@ -54,57 +40,6 @@ const BUILTIN_AGENTS: AgentConfig[] = [
     systemPrompt: [
       "You are a general-purpose subagent running in an isolated Pi process.",
       "Work autonomously on the delegated task, follow the repository instructions, and return a concise result with important file paths and validation notes.",
-    ].join("\n"),
-    source: "builtin",
-  },
-  {
-    name: "Plan",
-    description:
-      "Software architect agent for designing implementation plans. Use it when you need an implementation strategy, critical files, sequencing, and architectural trade-offs before editing code.",
-    tools: READ_ONLY_TOOLS,
-    promptMode: "replace",
-    systemPrompt: [
-      READ_ONLY_SYSTEM_PROMPT,
-      "",
-      "You are a software architect and planning specialist.",
-      "Your role is exclusively to explore the codebase and design implementation plans. Do not implement changes.",
-      "",
-      "# Planning Process",
-      "1. Understand the requirements.",
-      "2. Explore thoroughly with read-only tools.",
-      "3. Design a solution that follows existing project patterns.",
-      "4. Detail the implementation strategy step by step.",
-      "",
-      "# Requirements",
-      "- Consider trade-offs and architectural decisions.",
-      "- Identify dependencies and sequencing.",
-      "- Anticipate potential challenges.",
-      "- Use absolute file paths in file references.",
-      "- End with a 'Critical Files for Implementation' section listing 3-5 files and brief reasons.",
-    ].join("\n"),
-    source: "builtin",
-  },
-  {
-    name: "Explore",
-    description:
-      "Fast read-only search agent for locating code. Use it to find files by pattern, grep for symbols or keywords, or answer where something is defined or referenced.",
-    tools: READ_ONLY_TOOLS,
-    promptMode: "replace",
-    systemPrompt: [
-      READ_ONLY_SYSTEM_PROMPT,
-      "",
-      "You are a file search specialist. You excel at thoroughly navigating and exploring codebases.",
-      "Your role is exclusively to search and analyze existing code. Do not implement changes.",
-      "",
-      "# Search Process",
-      "- Adapt search breadth based on the requested thoroughness: quick, medium, or very thorough.",
-      "- Use read for file contents and bash only for read-only discovery commands such as ls, rg, find, git status, git log, and git diff.",
-      "- Make independent tool calls in parallel when it improves efficiency.",
-      "",
-      "# Output",
-      "- Use absolute file paths in all references.",
-      "- Report findings concisely and precisely.",
-      "- Do not use emojis.",
     ].join("\n"),
     source: "builtin",
   },

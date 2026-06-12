@@ -10,7 +10,7 @@ const jobs = new Map<string, BackgroundJob>();
 
 export function makeRunStatus(options: {
   id: string;
-  mode?: "single" | "parallel" | "chain";
+  mode?: "single";
   agentName: string;
   agentSource: AgentConfig["source"] | "unknown";
   description?: string;

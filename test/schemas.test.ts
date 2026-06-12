@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAgentAliasParams, normalizeSubagentParams } from "../src/schemas.ts";
+import { AgentAliasParams, normalizeAgentAliasParams, normalizeSubagentParams, SubagentParams } from "../src/schemas.ts";
 
 describe("normalizeSubagentParams", () => {
   it("normalizes reference-style run parameters", () => {
@@ -20,13 +20,6 @@ describe("normalizeSubagentParams", () => {
     });
   });
 
-  it("normalizes legacy agent/task parameters", () => {
-    expect(normalizeSubagentParams({ agent: "reviewer", task: "レビューして" })).toMatchObject({
-      kind: "run",
-      run: { mode: "single", agent: "reviewer", task: "レビューして" },
-    });
-  });
-
   it("normalizes Agent alias parameters", () => {
     expect(normalizeAgentAliasParams({ subagent_type: "Explore", prompt: "Find auth files", run_in_background: true })).toMatchObject({
       kind: "run",
@@ -34,14 +27,32 @@ describe("normalizeSubagentParams", () => {
     });
   });
 
-  it("rejects multiple run modes", () => {
-    expect(() => normalizeSubagentParams({ subagent_type: "reviewer", prompt: "x", tasks: [{ agent: "a", task: "b" }] })).toThrow(
-      "Invalid parameters. Provide exactly one run mode.",
-    );
+  it("rejects legacy run parameters with a migration hint", () => {
+    expect(() => normalizeSubagentParams({ agent: "reviewer", task: "レビューして" })).toThrow("legacy subagent run API was removed");
+    expect(() => normalizeSubagentParams({ tasks: [{ agent: "a", task: "b" }] })).toThrow("call subagent multiple times");
+    expect(() => normalizeSubagentParams({ chain: [{ agent: "a", task: "b" }] })).toThrow("call subagent multiple times");
+  });
+
+  it("does not expose legacy run parameters in public schemas", () => {
+    const subagentProperties = Object.keys((SubagentParams as any).properties);
+    expect(subagentProperties).not.toContain("agent");
+    expect(subagentProperties).not.toContain("task");
+    expect(subagentProperties).not.toContain("tasks");
+    expect(subagentProperties).not.toContain("chain");
+
+    const agentProperties = Object.keys((AgentAliasParams as any).properties);
+    expect(agentProperties).toEqual(expect.arrayContaining(["subagent_type", "prompt"]));
+    expect(agentProperties).not.toContain("agent");
+    expect(agentProperties).not.toContain("task");
   });
 
   it("rejects unsupported inherited context", () => {
     expect(() => normalizeSubagentParams({ subagent_type: "reviewer", prompt: "x", inherit_context: true })).toThrow("inherit_context");
+  });
+
+  it("requires subagent_type and prompt for run", () => {
+    expect(() => normalizeSubagentParams({ subagent_type: "reviewer" })).toThrow("requires both subagent_type and prompt");
+    expect(() => normalizeSubagentParams({ prompt: "x" })).toThrow("requires both subagent_type and prompt");
   });
 
   it("normalizes management actions", () => {

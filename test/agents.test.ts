@@ -63,15 +63,7 @@ Project prompt.
 
     expect(result.userAgentsDir).toBe(userAgentsDir);
     expect(result.projectAgentsDir).toBe(projectAgentsDir);
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "reviewer"]);
-    const plan = requireAgent(result.agents, "Plan");
-    const explore = requireAgent(result.agents, "Explore");
-    expect(plan.source).toBe("builtin");
-    expect(plan.model).toBeUndefined();
-    expect(plan.thinking).toBeUndefined();
-    expect(explore.source).toBe("builtin");
-    expect(explore.model).toBeUndefined();
-    expect(explore.thinking).toBeUndefined();
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "reviewer"]);
     expect(requireAgent(result.agents, "reviewer")).toMatchObject({
       source: "user",
       tools: ["read", "bash"],
@@ -154,7 +146,7 @@ Project prompt.
     const result = discoverAgents(path.join(tempDir, "repo"), "both");
     const reviewer = requireAgent(result.agents, "reviewer");
 
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "reviewer"]);
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "reviewer"]);
     expect(reviewer).toMatchObject({
       description: "Project reviewer",
       source: "project",
@@ -186,7 +178,7 @@ No description.
 
     const result = discoverAgents(tempDir, "user");
 
-    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "Plan", "Explore", "enabled"]);
+    expect(result.agents.map((agent) => agent.name)).toEqual(["general-purpose", "enabled"]);
   });
 });
 

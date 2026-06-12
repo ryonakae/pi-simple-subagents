@@ -3,8 +3,6 @@ import type { Message } from "@earendil-works/pi-ai";
 import type { AgentConfig, AgentScope } from "./agents.ts";
 
 export const CHILD_ENV = "PI_THIN_SUBAGENTS_CHILD";
-export const MAX_PARALLEL_TASKS = 8;
-export const MAX_CONCURRENCY = 4;
 export const OUTPUT_CAP_BYTES = 50 * 1024;
 export const SUBAGENT_TOOL_NAMES = ["subagent", "Agent", "get_subagent_result", "steer_subagent"];
 
@@ -19,7 +17,7 @@ export type UsageStats = {
 };
 
 export type RunState = "queued" | "running" | "completed" | "failed" | "interrupted" | "aborted";
-export type RunMode = "single" | "parallel" | "chain" | "list" | "status" | "result" | "interrupt" | "resume";
+export type RunMode = "single" | "list" | "status" | "result" | "interrupt" | "resume";
 
 export type SingleResult = {
   id?: string;
@@ -53,24 +51,10 @@ export type ToolResult = {
 
 export type OnUpdateCallback = (partial: ToolResult) => void;
 
-export type TaskItem = {
-  agent: string;
-  task: string;
-  cwd?: string;
-};
-
-export type ChainItem = {
-  agent: string;
-  task: string;
-  cwd?: string;
-};
-
 export type RunRequest = {
-  mode: "single" | "parallel" | "chain";
-  agent?: string;
-  task?: string;
-  tasks?: TaskItem[];
-  chain?: ChainItem[];
+  mode: "single";
+  agent: string;
+  task: string;
   cwd?: string;
   description?: string;
   runInBackground?: boolean;
@@ -93,7 +77,7 @@ export type NormalizedRequest =
 
 export type RunStatus = {
   id: string;
-  mode: "single" | "parallel" | "chain";
+  mode: "single";
   agent: string;
   agentSource: AgentConfig["source"] | "unknown";
   description?: string;

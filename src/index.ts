@@ -5,28 +5,8 @@ import { createForegroundStatus, getResult, getStatus, interruptRun, listStatuse
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
 import { type RunnerOverrides, startAgentRun } from "./runner.ts";
 import { AgentAliasParams, GetSubagentResultParams, normalizeAgentAliasParams, normalizeSubagentParams, SteerSubagentParams, SubagentParams } from "./schemas.ts";
-import { formatDetailedStatus, formatStatusList, formatStoredResult, getFinalOutput, getResultOutput, isFailedResult, truncateForParent } from "./status.ts";
-import { CHILD_ENV, type ChainItem, emptyUsage, MAX_CONCURRENCY, MAX_PARALLEL_TASKS, type OnUpdateCallback, type RunRequest, type SingleResult, type SubagentDetails, type TaskItem, type ToolResult } from "./types.ts";
-
-async function mapWithConcurrencyLimit<TIn, TOut>(
-  items: TIn[],
-  concurrency: number,
-  fn: (item: TIn, index: number) => Promise<TOut>,
-): Promise<TOut[]> {
-  if (items.length === 0) return [];
-  const limit = Math.max(1, Math.min(concurrency, items.length));
-  const results: TOut[] = new Array(items.length);
-  let nextIndex = 0;
-  const workers = new Array(limit).fill(null).map(async () => {
-    while (true) {
-      const current = nextIndex++;
-      if (current >= items.length) return;
-      results[current] = await fn(items[current], current);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
+import { formatDetailedStatus, formatStatusList, formatStoredResult, getFinalOutput, getResultOutput, isFailedResult } from "./status.ts";
+import { CHILD_ENV, emptyUsage, type OnUpdateCallback, type RunRequest, type SingleResult, type SubagentDetails, type ToolResult } from "./types.ts";
 
 function unknownAgentResult(agentName: string, task: string, agents: AgentConfig[], step?: number): SingleResult {
   const available = agents.map((candidate) => `"${candidate.name}"`).join(", ") || "none";
@@ -43,9 +23,7 @@ function unknownAgentResult(agentName: string, task: string, agents: AgentConfig
 }
 
 function requestedAgentNames(run: RunRequest): string[] {
-  if (run.mode === "single" && run.agent) return [run.agent];
-  if (run.mode === "parallel") return (run.tasks ?? []).map((task) => task.agent);
-  return (run.chain ?? []).map((step) => step.agent);
+  return [run.agent];
 }
 
 async function confirmProjectAgentsIfNeeded(options: {
@@ -194,146 +172,54 @@ async function handleRun(options: {
     };
   }
 
-  if (run.mode === "single" && run.agent && run.task) {
-    const agent = agents.find((candidate) => candidate.name === run.agent);
-    if (!agent) {
-      const result = unknownAgentResult(run.agent, run.task, agents);
-      return { content: [{ type: "text", text: getResultOutput(result) }], details: makeDetails("single")([result]) };
-    }
+  const agent = agents.find((candidate) => candidate.name === run.agent);
+  if (!agent) {
+    const result = unknownAgentResult(run.agent, run.task, agents);
+    return { content: [{ type: "text", text: getResultOutput(result) }], details: makeDetails("single")([result]) };
+  }
 
-    const runInBackground = run.runInBackground ?? agent.runInBackground ?? false;
-    const overrides = { model: run.model, thinking: run.thinking };
-    if (runInBackground) {
-      const status = await startBackgroundRun({
-        defaultCwd: ctx.cwd,
-        agent,
-        task: run.task,
-        cwd: run.cwd,
-        description: run.description,
-        overrides,
-        onComplete: (completedStatus, result) => {
-          if (ctx.hasUI) ctx.ui.notify(`Subagent ${completedStatus.id} ${completedStatus.state}: ${completedStatus.agent}`, completedStatus.state === "failed" ? "error" : "info");
-          void notifyCompletion(options.pi, completedStatus, result).catch(() => undefined);
-        },
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Started background subagent ${agent.name}: ${status.id}\nUse subagent({ action: "status", id: "${status.id}" }) to check progress.`,
-          },
-        ],
-        details: makeDetails("single", [status])([]),
-      };
-    }
-
-    const result = await runForegroundSingle({
+  const runInBackground = run.runInBackground ?? agent.runInBackground ?? false;
+  const overrides = { model: run.model, thinking: run.thinking };
+  if (runInBackground) {
+    const status = await startBackgroundRun({
       defaultCwd: ctx.cwd,
-      agents,
-      agentName: run.agent,
+      agent,
       task: run.task,
       cwd: run.cwd,
       description: run.description,
-      signal: options.signal,
-      onUpdate: options.onUpdate,
-      makeDetails: makeDetails("single"),
       overrides,
+      onComplete: (completedStatus, result) => {
+        if (ctx.hasUI) ctx.ui.notify(`Subagent ${completedStatus.id} ${completedStatus.state}: ${completedStatus.agent}`, completedStatus.state === "failed" ? "error" : "info");
+        void notifyCompletion(options.pi, completedStatus, result).catch(() => undefined);
+      },
     });
-    if (isFailedResult(result)) {
-      return { content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${getResultOutput(result)}` }], details: makeDetails("single")([result]) };
-    }
-    return { content: [{ type: "text", text: getFinalOutput(result.messages) || "(no output)" }], details: makeDetails("single")([result]) };
-  }
-
-  if (run.mode === "parallel" && run.tasks && run.tasks.length > 0) {
-    if (run.tasks.length > MAX_PARALLEL_TASKS) {
-      return { content: [{ type: "text", text: `Too many parallel tasks (${run.tasks.length}). Max is ${MAX_PARALLEL_TASKS}.` }], details: makeDetails("parallel")([]) };
-    }
-
-    const allResults: SingleResult[] = run.tasks.map((task: TaskItem) => ({
-      agent: task.agent,
-      agentSource: "unknown",
-      task: task.task,
-      exitCode: -1,
-      messages: [],
-      stderr: "",
-      usage: emptyUsage(),
-    }));
-
-    const emitParallelUpdate = () => {
-      if (!options.onUpdate) return;
-      const running = allResults.filter((result) => result.exitCode === -1).length;
-      const done = allResults.length - running;
-      options.onUpdate({ content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running...` }], details: makeDetails("parallel")([...allResults]) });
-    };
-
-    const results = await mapWithConcurrencyLimit(run.tasks, MAX_CONCURRENCY, async (task, index) => {
-      const result = await runForegroundSingle({
-        defaultCwd: ctx.cwd,
-        agents,
-        agentName: task.agent,
-        task: task.task,
-        cwd: task.cwd,
-        signal: options.signal,
-        onUpdate: (partial) => {
-          if (!partial.details?.results[0]) return;
-          allResults[index] = partial.details.results[0];
-          emitParallelUpdate();
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Started background subagent ${agent.name}: ${status.id}\nUse subagent({ action: "status", id: "${status.id}" }) to check progress.`,
         },
-        makeDetails: makeDetails("parallel"),
-      });
-      allResults[index] = result;
-      emitParallelUpdate();
-      return result;
-    });
-
-    const successCount = results.filter((result) => !isFailedResult(result)).length;
-    const summaries = results.map((result) => {
-      const status = isFailedResult(result) ? "failed" : "completed";
-      return `### [${result.agent}] ${status}\n\n${truncateForParent(getResultOutput(result))}`;
-    });
-
-    return { content: [{ type: "text", text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}` }], details: makeDetails("parallel")(results) };
+      ],
+      details: makeDetails("single", [status])([]),
+    };
   }
 
-  if (run.mode === "chain" && run.chain && run.chain.length > 0) {
-    const results: SingleResult[] = [];
-    let previousOutput = "";
-
-    for (let i = 0; i < run.chain.length; i++) {
-      const step: ChainItem = run.chain[i];
-      const taskWithContext = step.task.replace(/\{previous\}/g, previousOutput);
-      const chainUpdate: OnUpdateCallback | undefined = options.onUpdate
-        ? (partial) => {
-            const currentResult = partial.details?.results[0];
-            if (!currentResult) return;
-            options.onUpdate?.({ content: partial.content, details: makeDetails("chain")([...results, currentResult]) });
-          }
-        : undefined;
-
-      const result = await runForegroundSingle({
-        defaultCwd: ctx.cwd,
-        agents,
-        agentName: step.agent,
-        task: taskWithContext,
-        cwd: step.cwd,
-        step: i + 1,
-        signal: options.signal,
-        onUpdate: chainUpdate,
-        makeDetails: makeDetails("chain"),
-      });
-      results.push(result);
-
-      if (isFailedResult(result)) {
-        return { content: [{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}` }], details: makeDetails("chain")(results) };
-      }
-      previousOutput = getFinalOutput(result.messages);
-    }
-
-    return { content: [{ type: "text", text: getFinalOutput(results[results.length - 1].messages) || "(no output)" }], details: makeDetails("chain")(results) };
+  const result = await runForegroundSingle({
+    defaultCwd: ctx.cwd,
+    agents,
+    agentName: run.agent,
+    task: run.task,
+    cwd: run.cwd,
+    description: run.description,
+    signal: options.signal,
+    onUpdate: options.onUpdate,
+    makeDetails: makeDetails("single"),
+    overrides,
+  });
+  if (isFailedResult(result)) {
+    return { content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${getResultOutput(result)}` }], details: makeDetails("single")([result]) };
   }
-
-  return { content: [{ type: "text", text: `Invalid parameters.\nAvailable agents:\n${formatAgentList(agents)}` }], details: makeDetails("single")([]) };
+  return { content: [{ type: "text", text: getFinalOutput(result.messages) || "(no output)" }], details: makeDetails("single")([result]) };
 }
 
 async function handleSubagentTool(pi: ExtensionAPI, params: any, signal: AbortSignal | undefined, onUpdate: OnUpdateCallback | undefined, ctx: any): Promise<ToolResult> {
@@ -395,8 +281,8 @@ export default function (pi: ExtensionAPI) {
       "Delegate tasks to user-defined subagents with isolated Pi contexts.",
       "Reference-style: pass subagent_type and prompt.",
       "Use action=list/status/result/interrupt/resume to manage runs.",
-      "Compatibility modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
-      "Default agent scope is user: built-in general-purpose, Plan, and Explore plus ~/.pi/agent/agents/*.md.",
+      "Run API is reference-style only; pass subagent_type and prompt.",
+      "Default agent scope is user: built-in general-purpose plus ~/.pi/agent/agents/*.md.",
       'Set agentScope="both" to include trusted project-local .pi/agents/*.md.',
     ].join(" "),
     promptSnippet: "subagent: delegate complex or independent work to isolated user-defined agents",
